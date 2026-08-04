@@ -1,0 +1,56 @@
+package com.pockettavern.app.domain.model
+
+import kotlinx.serialization.Serializable
+import java.time.Instant
+import java.util.UUID
+
+data class MessageHeaderEntry(
+    val text: String,
+    val extensionId: String,
+    val collapsibleText: String = ""
+)
+
+data class ChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val content: String,
+    val isUser: Boolean,
+    /** True for narrator/system messages inserted via /sys — rendered differently, not sent to AI. */
+    val isNarrator: Boolean = false,
+    val timestamp: Instant = Instant.now(),
+    // Chat integrity slug - only present on first message, used for server-side validation
+    val integritySlug: String? = null,
+    // Full chat metadata (only on first message) - includes author's note per-chat
+    val chatMetadata: ChatMessageMetadata? = null,
+    // Sender name for group chats - null for 1-on-1 (no behavior change)
+    val senderName: String? = null,
+    // Raw content before output filters stripped extension tags (null if no filtering happened)
+    val rawContent: String? = null,
+    // Headers set by extensions (multiple extensions can each set one per message)
+    val extensionHeaders: List<MessageHeaderEntry> = emptyList(),
+    // Path to an image file for image messages (relative to filesDir, e.g. "chat_images/xxx/yyy.png")
+    val imagePath: String? = null,
+    // Reasoning/thinking content from models like DeepSeek R1 (shown collapsed in UI)
+    val reasoning: String? = null
+)
+
+// Per-chat metadata stored in the first message
+data class ChatMessageMetadata(
+    val notePrompt: String? = null,
+    val noteInterval: Int? = null,
+    val noteDepth: Int? = null,
+    val notePosition: Int? = null,
+    val noteRole: Int? = null
+)
+
+// Group chat message - includes sender information
+@Serializable
+data class GroupChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val content: String,
+    val isUser: Boolean,
+    val isSystem: Boolean = false,
+    val senderName: String? = null,
+    val senderAvatar: String? = null,
+    val timestamp: Long = System.currentTimeMillis(),
+    val imagePath: String? = null
+)

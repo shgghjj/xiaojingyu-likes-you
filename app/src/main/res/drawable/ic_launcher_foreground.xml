@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 白夜 · 黑白近未来图标：黑色轨道圆环 + 白色核心点 + 灰色 HUD 底座 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 轨道圆环（空心，白描边） -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3"
+        android:pathData="M54,32 a22,22 0 1,1 0,44 a22,22 0 1,1 0,-44" />
+    <!-- 轨道顶部刻度 -->
+    <path
+        android:strokeColor="#FFB8B8BC"
+        android:strokeWidth="2"
+        android:pathData="M54,24 L54,28" />
+    <!-- 核心点（白色瞳孔/星球） -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,54 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+    <!-- HUD 底座横线（灰） -->
+    <path
+        android:strokeColor="#FF6E6E74"
+        android:strokeWidth="2"
+        android:pathData="M38,88 L70,88" />
+    <!-- HUD 底座两侧小竖线 -->
+    <path
+        android:strokeColor="#FF6E6E74"
+        android:strokeWidth="2"
+        android:pathData="M38,84 L38,88 M70,84 L70,88" />
+</vector>

@@ -1,0 +1,18 @@
+This content uses sample data owned and copyrighted by Live2D Inc. The sample data are utilized in accordance with terms and conditions set by Live2D Inc. This content itself is created at the author's sole discretion.
+
+Bundled Live2D original characters:
+Haru, Hiyori Momose, Mao Niziiro, Mark-kun, Rice Glassfield, Wankoromochi.
+
+Mark-kun is used without changing his cartoon character nature, in accordance with his individual terms.
+
+Live2D Free Material License Agreement:
+https://www.live2d.com/eula/live2d-free-material-license-agreement_en.html
+
+Terms of Use for Live2D Cubism Sample Data:
+https://www.live2d.com/eula/live2d-sample-model-terms_en.html
+
+Live2D Open Software License Agreement:
+https://www.live2d.com/eula/live2d-open-software-license-agreement_en.html
+
+The renderer also includes PixiJS and pixi-live2d-display under their MIT licenses.
+See PIXI_LICENSE.txt and PIXI_LIVE2D_DISPLAY_LICENSE.txt in this folder.

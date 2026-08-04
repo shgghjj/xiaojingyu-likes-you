@@ -1,0 +1,477 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>小鲸鱼喜欢你 Live2D</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      background:
+        radial-gradient(circle at 25% 20%, rgba(167, 126, 255, .22), transparent 38%),
+        radial-gradient(circle at 78% 72%, rgba(90, 211, 255, .18), transparent 42%),
+        linear-gradient(155deg, rgba(20, 20, 34, .94), rgba(8, 13, 24, .97));
+    }
+    #stage { width: 100%; height: 100%; touch-action: none; }
+    #status {
+      position: absolute; left: 12px; bottom: 10px; right: 12px; padding: 7px 10px;
+      color: #eee; background: rgba(24, 24, 30, .72); border-radius: 12px;
+      font: 13px/1.35 sans-serif; text-align: center; pointer-events: none;
+      z-index: 10;
+    }
+    #status.ready { opacity: 0; transition: opacity .5s; }
+    #status.error { color: #ffb3b3; background: rgba(64, 16, 16, .82); opacity: 1; }
+    #status.ready.error { opacity: 1; }
+
+    #diag {
+      position: absolute; left: 8px; top: 8px; right: 8px; bottom: 8px;
+      overflow: auto; padding: 10px 12px; border-radius: 10px;
+      background: rgba(8, 10, 18, .94); border: 1px solid rgba(120, 130, 180, .45);
+      color: #d8ddf0; font: 13px/1.6 Consolas, monospace; z-index: 100;
+      white-space: pre-wrap; word-break: break-all; pointer-events: auto;
+      -webkit-text-size-adjust: 100%;
+      cursor: pointer;
+    }
+    #diag.collapsed { display: none; }
+    #diagToggle {
+      position: absolute; top: 8px; left: 8px; z-index: 101;
+      padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(120, 130, 180, .45);
+      background: rgba(8, 10, 18, .92); color: #9fb2e8;
+      font: 13px sans-serif; cursor: pointer;
+    }
+    #diag .ok { color: #6fdc8c; }
+    #diag .fail { color: #ff7b7b; }
+    #diag .wait { color: #d8b26a; }
+    #diag .dim { color: #8b93ad; }
+    #diag .req { color: #9fb2e8; }
+    #diag b { color: #fff; }
+  </style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div id="status">正在准备 Live2D…</div>
+  <button id="diagToggle" onclick="toggleDiag()" type="button">诊断面板 ✓</button>
+  <div id="diag" class="collapsed" onclick="toggleDiag()">诊断面板初始化中…</div>
+  <script>
+    function toggleDiag() {
+      const d = document.getElementById('diag');
+      const collapsed = d.classList.toggle('collapsed');
+      document.getElementById('diagToggle').textContent = collapsed ? '诊断面板 ✓' : '诊断面板 ✕';
+    }
+  </script>
+  <script>
+    function fixViewport() {
+      const w = window.innerWidth, h = window.innerHeight;
+      if (!w || !h) return;
+      const doc = document.documentElement, body = document.body;
+      const stage = document.getElementById('stage');
+      doc.style.width = w + 'px'; doc.style.height = h + 'px';
+      body.style.width = w + 'px'; body.style.height = h + 'px';
+      stage.style.width = w + 'px'; stage.style.height = h + 'px';
+      const diag = document.getElementById('diag');
+      diag.style.top = '8px'; diag.style.bottom = 'auto'; diag.style.height = (h - 16) + 'px';
+      const status = document.getElementById('status');
+      status.style.bottom = 'auto'; status.style.top = (h - 48) + 'px';
+    }
+    window.addEventListener('resize', fixViewport);
+    window.addEventListener('orientationchange', () => setTimeout(fixViewport, 300));
+    fixViewport();
+    window.addEventListener('load', () => {
+      setTimeout(fixViewport, 150);
+      setTimeout(fixViewport, 700);
+    });
+    setTimeout(fixViewport, 250);
+  </script>
+  <script src="vendor/live2dcubismcore.min.js"></script>
+  <script src="vendor/pixi.min.js"></script>
+  <script src="vendor/cubism4.min.js"></script>
+  <script>
+    (() => {
+      const canvas = document.getElementById('stage');
+      const status = document.getElementById('status');
+      const diagEl = document.getElementById('diag');
+      let app = null;
+      let currentModel = null;
+      let pendingPath = null;
+      let speaking = false;
+      let ready = false;
+      let loadingSequence = 0;
+      let mouthLevel = -1;        // 真实口型电平 0..1；-1 表示未使用（回退正弦波）
+      let stateExpression = null; // 当前表情名（导演指令）
+      let stateMotionGroup = null;
+      let stateMotionIndex = null;
+
+      // ============ 临时诊断面板 ============
+      const DIAG_STEPS = [
+        'BOOT',
+        'CUBISM_CORE_LOADED',
+        'WEBGL_CREATED',
+        'MODEL_JSON_LOADED',
+        'MOC3_LOADED',
+        'TEXTURES_LOADED',
+        'MODEL_INITIALIZED',
+        'FIRST_FRAME_RENDERED'
+      ];
+      const diag = {
+        state: {}, reqs: [], errors: [], meta: [],
+        mark(name, ok, detail) {
+          this.state[name] = ok ? 'ok' : 'fail';
+          if (detail) this.meta.push(name + ': ' + detail);
+          this.render();
+        },
+        req(url, result) {
+          this.reqs.push((result ? '[' + result + '] ' : '') + url);
+          if (this.reqs.length > 40) this.reqs.shift();
+          if (/\.model3\.json/.test(url) && /2\d\d|^ok$/i.test(String(result))) this.mark('MODEL_JSON_LOADED', true, url);
+          if (/\.moc3($|\?)/.test(url) && /2\d\d|^ok$/i.test(String(result))) this.mark('MOC3_LOADED', true, url);
+          if (/\.(png|jpg|jpeg|webp)($|\?)/.test(url) && /2\d\d|^ok$/i.test(String(result))) this.mark('TEXTURES_LOADED', true, url);
+          this.render();
+        },
+        render() {
+          const lines = [];
+          for (const s of DIAG_STEPS) {
+            const v = this.state[s];
+            const cls = v === 'ok' ? 'ok' : v === 'fail' ? 'fail' : 'wait';
+            const icon = v === 'ok' ? '[OK ]' : v === 'fail' ? '[FAIL]' : '[ .. ]';
+            lines.push(`<span class="${cls}">${icon} ${s}</span>`);
+          }
+          lines.push('');
+          for (const m of this.meta) lines.push(`<span class="dim">${m}</span>`);
+          lines.push('<b>location.href</b>: ' + location.href);
+          lines.push(`<b>canvas</b>: client=${canvas.clientWidth}x${canvas.clientHeight} buffer=${canvas.width}x${canvas.height}`);
+          lines.push(`<b>webgl</b>: ` + (this.glInfo || '（尚未创建）'));
+          lines.push('<b>model3.json 完整路径</b>: ' + (this.modelPathUrl || '（尚未指定）'));
+          lines.push('');
+          lines.push('<b>资源请求</b>:');
+          if (this.reqs.length === 0) lines.push('<span class="dim">（暂无请求）</span>');
+          for (const r of this.reqs.slice(-25)) lines.push('<span class="req">' + r + '</span>');
+          if (this.errors.length) {
+            lines.push('');
+            lines.push('<b>错误</b>:');
+            for (const e of this.errors.slice(-8)) lines.push('<span class="fail">' + e + '</span>');
+          }
+          diagEl.innerHTML = lines.join('\n');
+        },
+        fail(msg) {
+          this.errors.push(msg);
+          this.render();
+        }
+      };
+
+      const origFetch = window.fetch.bind(window);
+      window.fetch = (...args) => {
+        let url = '';
+        try { url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || ''; } catch (_) {}
+        return origFetch(...args).then(
+          r => { diag.req(url, r.status); return r; },
+          e => { diag.req(url, 'ERR ' + (e && e.message)); diag.fail('fetch 失败 ' + url + ' :: ' + (e && e.message)); throw e; }
+        );
+      };
+
+      const origOpen = XMLHttpRequest.prototype.open;
+      const origSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        this.__diagUrl = String(url);
+        return origOpen.call(this, method, url, ...rest);
+      };
+      XMLHttpRequest.prototype.send = function(...args) {
+        this.addEventListener('loadend', () => {
+          diag.req(this.__diagUrl || '?', this.status);
+        });
+        this.addEventListener('error', () => {
+          diag.req(this.__diagUrl || '?', 'NETWORK_ERR');
+          diag.fail('XHR 失败 ' + (this.__diagUrl || '?'));
+        });
+        return origSend.apply(this, args);
+      };
+
+      try {
+        const imgDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+        const imgSetter = imgDesc && imgDesc.set;
+        if (imgSetter) {
+          Object.defineProperty(HTMLImageElement.prototype, 'src', {
+            get() { return imgDesc.get.call(this); },
+            set(v) {
+              if (this.tagName === 'IMG') {
+                const target = this;
+                const url = String(v).split('?')[0];
+                const onEvent = (ev) => {
+                  const ok = target.complete && target.naturalWidth > 0;
+                  if (ev === 'error') {
+                    diag.req(url, 'IMG_ERR');
+                    diag.fail('IMG 加载失败: ' + url);
+                  } else if (ok) {
+                    diag.req(url, 200);
+                    if (/\.(png|jpg|jpeg|webp)($|\?)/.test(url)) {
+                      diag.mark('TEXTURES_LOADED', true, url);
+                    }
+                  }
+                };
+                target.addEventListener('load', () => onEvent('load'), { once: true });
+                target.addEventListener('error', () => onEvent('error'), { once: true });
+              }
+              return imgSetter.call(this, v);
+            }
+          });
+        }
+      } catch (_) {}
+
+      function message(text, isReady = false, isError = false) {
+        status.textContent = text;
+        status.className = (isReady ? 'ready' : '') + (isError ? ' error' : '');
+        console.log('[live2d] ' + (isError ? 'ERROR: ' : '') + text);
+        if (isError) diag.fail(text);
+        diag.render();
+      }
+
+      function fitModel() {
+        if (!currentModel || !app) return;
+        const sourceWidth = currentModel.internalModel.originalWidth || currentModel.width;
+        const sourceHeight = currentModel.internalModel.originalHeight || currentModel.height;
+        const scale = Math.min(
+          app.renderer.width / sourceWidth * 0.88,
+          app.renderer.height / sourceHeight * 0.94
+        );
+        currentModel.scale.set(scale);
+        currentModel.x = (app.renderer.width - currentModel.width) / 2;
+        currentModel.y = app.renderer.height - currentModel.height;
+      }
+
+      async function loadModel(path) {
+        pendingPath = path;
+        diag.modelPathUrl = new URL(path, location.href).href;
+        diag.render();
+        if (!ready) return;
+        const sequence = ++loadingSequence;
+        message('正在加载皮套…');
+        try {
+          const next = await PIXI.live2d.Live2DModel.from(path, { autoInteract: false });
+          if (sequence !== loadingSequence) {
+            next.destroy({ children: true });
+            return;
+          }
+          if (currentModel) {
+            app.stage.removeChild(currentModel);
+            currentModel.destroy({ children: true });
+          }
+          currentModel = next;
+          app.stage.addChild(next);
+          fitModel();
+          resetState();
+          diag.mark('MODEL_INITIALIZED', true, path);
+          diag.meta.push('geom0: origW=' + next.internalModel.originalWidth + ' origH=' + next.internalModel.originalHeight +
+            ' w=' + next.width + ' h=' + next.height +
+            ' scale=' + next.scale.x.toFixed(4) + ' x=' + next.x.toFixed(1) + ' y=' + next.y.toFixed(1) +
+            ' alpha=' + next.alpha + ' vis=' + next.visible + ' rend=' + next.renderable +
+            ' kids=' + next.children.length +
+            ' parentIsStage=' + (app.stage === next.parent));
+          if (diag.state.TEXTURES_LOADED !== 'ok') {
+            diag.mark('TEXTURES_LOADED', true, '（模型初始化成功，纹理已就绪）');
+          }
+          message('已加载 · 轻点角色可触发动作', true);
+        } catch (error) {
+          currentModel = null;
+          diag.mark('MODEL_INITIALIZED', false, errorText(error));
+          message('皮套加载失败：' + (error && error.message ? error.message : String(error)), false, true);
+        }
+      }
+
+      function setSpeaking(value) {
+        speaking = !!value;
+        if (!speaking) mouthLevel = -1;
+      }
+
+      /** 真实音频电平 0..1（由 Kotlin RMS 平滑后推送）；<=0 表示闭嘴。 */
+      function setMouth(level) {
+        mouthLevel = typeof level === 'number' ? level : -1;
+      }
+
+      /** 导演指令：播放表情/动作/视线。所有名称必须来自真实模型定义，失败静默回退。 */
+      function setState(cmd) {
+        if (!cmd || !currentModel) return;
+        const internals = currentModel.internalModel;
+        if (typeof cmd.expression === 'string' && cmd.expression) {
+          try {
+            const exprDefs = internals.expressionManager && internals.expressionManager.definitions;
+            const found = exprDefs && exprDefs.find(d => String(d.Name) === cmd.expression);
+            if (found && typeof currentModel.expression === 'function') {
+              currentModel.expression(cmd.expression, 2);
+              stateExpression = cmd.expression;
+            }
+          } catch (_) {}
+        }
+        if (typeof cmd.motionGroup === 'string' && cmd.motionGroup) {
+          try {
+            const defs = internals.motionManager && internals.motionManager.definitions || {};
+            if (defs[cmd.motionGroup]) {
+              const index = Number.isInteger(cmd.motionIndex) ? cmd.motionIndex : 0;
+              currentModel.motion(cmd.motionGroup, { priority: 2, index: index });
+              stateMotionGroup = cmd.motionGroup;
+              stateMotionIndex = index;
+            }
+          } catch (_) {}
+        }
+        if (cmd.gaze && cmd.gaze !== 'none' && typeof currentModel.focus === 'function') {
+          try {
+            const w = app.renderer.width, h = app.renderer.height;
+            const x = cmd.gaze === 'left' ? w * 0.15 : cmd.gaze === 'right' ? w * 0.85 : w * 0.5;
+            const y = cmd.gaze === 'down' ? h * 0.85 : h * 0.35;
+            currentModel.focus(x, y);
+          } catch (_) {}
+        }
+      }
+
+      /** 重置导演驱动的表情/动作（状态回 idle 时调用）。 */
+      function resetState() {
+        stateExpression = null;
+        stateMotionGroup = null;
+        stateMotionIndex = null;
+        mouthLevel = -1;
+      }
+
+      window.AICompanion = { loadModel, setSpeaking, setMouth, setState, resetState };
+
+      function errorText(error) {
+        return error && error.message ? error.message : String(error);
+      }
+
+      function canUseWebGL() {
+        try {
+          const probe = document.createElement('canvas');
+          return !!(
+            probe.getContext('webgl2') ||
+            probe.getContext('webgl') ||
+            probe.getContext('experimental-webgl')
+          );
+        } catch (_) {
+          return false;
+        }
+      }
+
+      async function waitForCubismCore(timeoutMs = 12000) {
+        const started = performance.now();
+        while (performance.now() - started < timeoutMs) {
+          try {
+            if (
+              window.Live2DCubismCore &&
+              Live2DCubismCore.Version &&
+              typeof Live2DCubismCore.Version.csmGetVersion === 'function'
+            ) {
+              Live2DCubismCore.Version.csmGetVersion();
+              diag.mark('CUBISM_CORE_LOADED', true,
+                'csmGetVersion=0x' + Live2DCubismCore.Version.csmGetVersion().toString(16));
+              return;
+            }
+          } catch (e) {
+            diag.fail('csmGetVersion 抛异常: ' + errorText(e));
+          }
+          await new Promise(resolve => setTimeout(resolve, 80));
+        }
+        diag.mark('CUBISM_CORE_LOADED', false, 'timeout 12s');
+        throw new Error('Cubism 核心组件启动超时');
+      }
+
+      window.addEventListener('error', event => {
+        message('Live2D 运行错误：' + errorText(event.error || event.message), false, true);
+      });
+      window.addEventListener('unhandledrejection', event => {
+        message('Live2D 加载错误：' + errorText(event.reason), false, true);
+      });
+
+      window.addEventListener('load', async () => {
+        try {
+          diag.mark('BOOT', true);
+          if (!canUseWebGL()) {
+            throw new Error('当前设备未提供 WebGL，请更新 Android System WebView 后重试');
+          }
+          await waitForCubismCore();
+          if (!window.PIXI || !PIXI.live2d) throw new Error('Live2D 渲染组件未就绪');
+          app = new PIXI.Application({
+            view: canvas,
+            resizeTo: window,
+            autoStart: true,
+            backgroundAlpha: 1,
+            backgroundColor: 0x14141e,
+            antialias: false,
+            powerPreference: 'high-performance',
+            clearBeforeRender: true
+          });
+          try {
+            const gl = app.renderer.gl;
+            const v = gl.getParameter(gl.VERSION);
+            const r = gl.getParameter(gl.RENDERER);
+            diag.glInfo = String(r) + ' | ' + String(v);
+          } catch (e) {
+            diag.glInfo = '读取失败: ' + errorText(e);
+          }
+          diag.mark('WEBGL_CREATED', true, diag.glInfo);
+
+          let firstFrameMarked = false;
+          app.ticker.add(() => {
+            if (!currentModel) return;
+            if (!firstFrameMarked) {
+              firstFrameMarked = true;
+              setTimeout(() => {
+                if (currentModel) {
+                  diag.mark('FIRST_FRAME_RENDERED', true);
+                  diag.meta.push('geom1: w=' + currentModel.width + ' h=' + currentModel.height +
+                    ' scale=' + currentModel.scale.x.toFixed(4) + ' x=' + currentModel.x.toFixed(1) + ' y=' + currentModel.y.toFixed(1) +
+                    ' kids=' + currentModel.children.length + ' alpha=' + currentModel.alpha);
+                  try {
+                    const gl = app.renderer.gl;
+                    const px = new Uint8Array(4);
+                    gl.readPixels(Math.floor(gl.drawingBufferWidth / 2), Math.floor(gl.drawingBufferHeight / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+                    diag.meta.push('centerPx: ' + Array.from(px).join(','));
+                  } catch (e) {
+                    diag.meta.push('centerPx 读取失败: ' + errorText(e));
+                  }
+                }
+              }, 600);
+            }
+            const mouth = speaking
+              ? (mouthLevel >= 0 ? Math.min(mouthLevel, 1) : (0.28 + Math.abs(Math.sin(performance.now() / 105)) * 0.72))
+              : 0;
+            try {
+              currentModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', mouth);
+              currentModel.internalModel.coreModel.setParameterValueById('ParamA', mouth);
+              currentModel.internalModel.coreModel.setParameterValueById('PARAM_MOUTH_OPEN_Y', mouth);
+            } catch (_) {}
+          }, null, PIXI.UPDATE_PRIORITY.HIGH);
+
+          canvas.addEventListener('webglcontextlost', event => {
+            event.preventDefault();
+            message('WebGL 上下文丢失，尝试恢复…', false, true);
+          });
+          canvas.addEventListener('webglcontextrestored', () => {
+            message('已加载 · 轻点角色可触发动作', true);
+          });
+
+          canvas.addEventListener('pointermove', event => {
+            if (currentModel) currentModel.focus(event.clientX, event.clientY);
+          });
+          canvas.addEventListener('pointerdown', async event => {
+            if (!currentModel) return;
+            currentModel.focus(event.clientX, event.clientY);
+            try {
+              const groups = Object.keys(currentModel.internalModel.motionManager.definitions || {});
+              const group = groups.includes('TapBody') ? 'TapBody' : groups[0];
+              if (group) await currentModel.motion(group);
+            } catch (_) {}
+            // 通知 Kotlin：点击角色（聊天页用于 tap-to-interrupt 打断朗读）
+            try { if (window.AndroidBridge && window.AndroidBridge.onTap) window.AndroidBridge.onTap(); } catch (_) {}
+          });
+          window.addEventListener('resize', fitModel);
+
+          ready = true;
+          const autoModel = new URLSearchParams(location.search).get('model');
+          if (autoModel) pendingPath = autoModel;
+          if (pendingPath) await loadModel(pendingPath);
+        } catch (error) {
+          message('Live2D 初始化失败：' + errorText(error), false, true);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+MIT License + No Commercial Use Restriction
+
+Copyright (c) 2026 starkka15
+
+The rights granted under this License do not include, and this License does not
+grant, the right to Sell the Software or any Derivative Work, in whole or in part.
+
+For purposes of this restriction, "Sell" means any of the following where a fee,
+subscription charge, or other consideration is received:
+
+  (a) distributing the Software or any Derivative Work as a paid product, including
+      via app stores, direct download, or physical media;
+
+  (b) providing access to the Software or any Derivative Work as a hosted service,
+      SaaS product, or subscription-based application;
+
+  (c) incorporating any portion of the Software's source code into a commercial
+      product or service for which a fee is charged;
+
+  (d) providing consulting, support, or integration services whose primary
+      deliverable is the Software or any Derivative Work.
+
+This restriction applies to any portion of the code, however small. There is no
+minimum threshold. Any commercial use of any part of this Software requires
+explicit written permission from the Licensor (starkka15).
+
+Any license notice or attribution required by the License must also include this
+restriction notice.
+
+Software: PocketTavern
+Licensor: starkka15
+
+---
+
+MIT License
+
+Copyright (c) 2026 starkka15
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

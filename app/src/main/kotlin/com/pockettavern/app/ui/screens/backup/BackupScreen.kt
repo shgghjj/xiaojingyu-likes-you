@@ -1,0 +1,181 @@
+﻿package com.pockettavern.app.ui.screens.backup
+
+import com.pockettavern.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BackupScreen(
+    onBack: () -> Unit,
+    viewModel: BackupViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        uri?.let { viewModel.exportBackup(it) }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.importBackup(it) }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.backup_restore)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Text(text = stringResource(R.string.backup_includes_characters_chats_lorebooks_ba),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Export card
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Upload,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(stringResource(R.string.export_backup), style = MaterialTheme.typography.titleMedium)
+                    }
+                    Text(text = stringResource(R.string.save_all_your_data_as_a_zip_file),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = {
+                            val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                                .format(java.util.Date())
+                        exportLauncher.launch("小鲸鱼喜欢你备份_$ts.zip")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isExporting && !uiState.isImporting
+                    ) {
+                        if (uiState.isExporting) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(if (uiState.isExporting) "正在导出…" else "导出")
+                    }
+                }
+            }
+
+            // Import card
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(stringResource(R.string.restore_backup), style = MaterialTheme.typography.titleMedium)
+                    }
+                    Text(text = stringResource(R.string.restore_from_a_previously_exported_zip_existi),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(
+                        onClick = { importLauncher.launch("application/zip") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isExporting && !uiState.isImporting
+                    ) {
+                        if (uiState.isImporting) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(if (uiState.isImporting) "正在恢复…" else "从 ZIP 恢复")
+                    }
+                }
+            }
+
+            // Status messages
+            uiState.message?.let { msg ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(msg, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        TextButton(onClick = { viewModel.clearMessage() }) {
+                            Text(stringResource(R.string.ok))
+                        }
+                    }
+                }
+            }
+
+            uiState.error?.let { err ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(err, color = MaterialTheme.colorScheme.onErrorContainer)
+                        TextButton(onClick = { viewModel.clearMessage() }) {
+                            Text(stringResource(R.string.dismiss))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

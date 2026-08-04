@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 白夜 · 黑白近未来主题 -->
+    <color name="background">#FF0B0B0D</color>
+    <color name="surface">#FF141416</color>
+    <color name="surface_variant">#FF1D1D20</color>
+    <color name="accent">#FFFFFFFF</color>
+    <color name="accent_secondary">#FFB8B8BC</color>
+    <color name="error">#FFE5484D</color>
+    <color name="text_primary">#FFF2F2F4</color>
+    <color name="text_secondary">#FF9A9AA0</color>
+</resources>
