@@ -47,15 +47,17 @@
 
 ## 🚀 快速开始
 
-1. 安装 APK（Android 8.0+）
-2. 首次启动进入教程，阅读许可声明
-3. 设置 → API 配置 → 选择 DeepSeek → 输入 API Key → 测试连接
-4. 回到首页 → 进入「小女友」开始聊天
+### 直接安装（推荐）
+从 [Releases 页面](https://github.com/shgghjj/xiaojingyu-likes-you/releases) 下载最新 APK：
+- 文件名：`xiaojingyu-likes-you-v0.5.1.apk`
+- 要求：Android 8.0+（minSdk 26）
+- 安装步骤：
+  1. 下载 APK
+  2. 手机开启「允许安装未知来源应用」
+  3. 打开 APK 安装
+  4. 首次启动按教程配置 DeepSeek API
 
----
-
-## 📦 构建
-
+### 从源码构建
 需要：JDK 17、Android SDK（Build Tools 35.0.0）
 
 ```powershell
