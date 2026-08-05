@@ -1,3 +1,7 @@
+[**English**](README_EN.md) | 中文
+
+---
+
 # 小鲸鱼喜欢你 (Xiaojingyu Likes You)
 
 > **⚠️ 非商用声明：本软件仅供个人学习与研究使用，严禁任何形式的商业用途。详见 [LICENSE](LICENSE.md)。**
