@@ -1,3 +1,7 @@
+🌐 [English](README_EN.md) | [简体中文](README.md)
+
+---
+
 # Xiaojingyu Likes You
 
 > **⚠️ Non-commercial notice: This software is for personal learning and research only. Any commercial use is strictly prohibited. See [LICENSE.md](LICENSE.md).**
